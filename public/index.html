@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LogPilot AI</title>
+  <title>LogPilot</title>
 
   <style>
     * {
@@ -14,105 +14,108 @@
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: #ffffff;
-      color: #111111;
+      background: white;
+      color: black;
     }
 
     header {
-      padding: 20px 8%;
-      border-bottom: 1px solid #dddddd;
+      padding: 20px 6%;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
-    header h1 {
+    h1 {
       margin: 0;
-      font-size: 24px;
+      font-size: 25px;
     }
 
-    header p {
-      margin-bottom: 0;
-      color: #666666;
+    header p, .muted {
+      color: #666;
       font-size: 14px;
     }
 
     main {
-      max-width: 900px;
-      margin: 35px auto;
+      max-width: 1100px;
+      margin: 30px auto;
       padding: 0 20px;
     }
 
     .stats {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 15px;
+      gap: 16px;
     }
 
     .card {
-      border: 1px solid #dddddd;
+      border: 1px solid #ddd;
       padding: 20px;
       margin-bottom: 20px;
     }
 
     .label {
-      color: #666666;
-      font-size: 13px;
+      color: #666;
+      font-size: 14px;
     }
 
     .value {
-      font-size: 24px;
-      margin-top: 10px;
+      font-size: 28px;
+      font-weight: bold;
+      margin-top: 12px;
     }
 
     h2 {
-      font-size: 18px;
+      font-size: 19px;
       margin-top: 0;
     }
 
     button {
       padding: 11px 16px;
-      background: #111111;
-      color: #ffffff;
-      border: 1px solid #111111;
+      background: black;
+      color: white;
+      border: 1px solid black;
       cursor: pointer;
     }
 
     button:disabled {
-      opacity: 0.6;
-      cursor: wait;
+      opacity: 0.5;
     }
 
-    #status {
-      color: #666666;
-      font-size: 14px;
-    }
-
-    #result {
+    #analysis {
       white-space: pre-wrap;
       overflow-wrap: anywhere;
       line-height: 1.6;
     }
 
-    .error-item {
-      padding: 14px 0;
-      border-top: 1px solid #eeeeee;
+    .table-wrap {
+      overflow-x: auto;
     }
 
-    .error-code {
-      font-weight: bold;
-    }
-
-    .muted {
-      color: #666666;
+    table {
+      width: 100%;
+      border-collapse: collapse;
       font-size: 14px;
+      text-align: left;
     }
 
-    @media (max-width: 600px) {
+    th, td {
+      padding: 12px 8px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    th {
+      background: #f7f7f7;
+    }
+
+    @media (max-width: 650px) {
+      header {
+        padding: 18px;
+      }
+
       .stats {
         grid-template-columns: 1fr;
         gap: 0;
-      }
-
-      header {
-        padding: 20px;
       }
 
       main {
@@ -124,8 +127,11 @@
 
 <body>
   <header>
-    <h1>LogPilot AI</h1>
-    <p>Application monitoring and incident analysis</p>
+    <div>
+      <h1>LogPilot</h1>
+      <p>Application Monitoring & AI Incident Analysis</p>
+    </div>
+    <span>Local AI · Ollama</span>
   </header>
 
   <main>
@@ -136,8 +142,8 @@
       </div>
 
       <div class="card">
-        <div class="label">AI Engine</div>
-        <div class="value">Ollama</div>
+        <div class="label">HTTP 500 Errors</div>
+        <div class="value" id="serverErrors">—</div>
       </div>
 
       <div class="card">
@@ -149,25 +155,38 @@
     <section class="card">
       <h2>AI Incident Analysis</h2>
       <p class="muted">
-        Analyze recent errors and get possible causes and debugging steps.
+        Analyze recent errors and identify possible causes.
       </p>
 
       <button id="analyzeButton" onclick="analyzeErrors()">
         Analyze Errors
       </button>
 
-      <p id="status" role="status"></p>
-
-      <h2>AI Findings</h2>
-      <div id="result" class="muted">
-        Click Analyze Errors to begin.
-      </div>
+      <p id="analysisStatus" class="muted"></p>
+      <div id="analysis">Click Analyze Errors to begin.</div>
     </section>
 
     <section class="card">
-      <h2>Recent Errors</h2>
-      <div id="errors" class="muted">
-        Error events will appear here.
+      <h2>Recent Error Logs</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Level</th>
+              <th>Message</th>
+              <th>Endpoint</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+
+          <tbody id="logs">
+            <tr>
+              <td colspan="5">No logs loaded yet.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
   </main>
@@ -175,14 +194,14 @@
   <script>
     async function analyzeErrors() {
       const button = document.getElementById("analyzeButton");
-      const status = document.getElementById("status");
-      const resultBox = document.getElementById("result");
-      const errorsBox = document.getElementById("errors");
+      const status = document.getElementById("analysisStatus");
+      const analysis = document.getElementById("analysis");
+      const logs = document.getElementById("logs");
 
       button.disabled = true;
-      status.textContent = "Analyzing logs...";
-      resultBox.textContent = "";
-      errorsBox.textContent = "";
+      status.textContent = "Analyzing logs with AI...";
+      analysis.textContent = "Please wait...";
+      logs.replaceChildren();
 
       try {
         const response = await fetch("/ai/analyze", {
@@ -196,44 +215,52 @@
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.details || data.error || "Analysis failed");
+          throw new Error(
+            data.details || data.error || "Analysis failed"
+          );
         }
 
+        const errors = data.errors || [];
+
         document.getElementById("errorCount").textContent =
-          data.count ?? 0;
+          data.count ?? errors.length;
 
-        resultBox.textContent =
-          data.analysis || data.message || "No analysis available.";
+        document.getElementById("serverErrors").textContent =
+          errors.filter(e => Number(e.statusCode) === 500).length;
 
-        if (!data.errors || data.errors.length === 0) {
-          errorsBox.textContent = "No matching errors found.";
+        analysis.textContent =
+          data.analysis || "No AI analysis returned.";
+
+        if (errors.length === 0) {
+          const row = logs.insertRow();
+          const cell = row.insertCell();
+          cell.colSpan = 5;
+          cell.textContent = "No errors found.";
         } else {
-          for (const error of data.errors) {
-            const item = document.createElement("div");
-            item.className = "error-item";
+          errors.forEach(error => {
+            const row = logs.insertRow();
 
-            const heading = document.createElement("div");
-            heading.className = "error-code";
-            heading.textContent =
-              `${error.statusCode ?? "Unknown"} · ${error.level ?? "Unknown"}`;
+            const values = [
+              error["@timestamp"]
+                ? new Date(error["@timestamp"]).toLocaleString()
+                : "—",
+              error.level || "—",
+              error.message || "—",
+              `${error.method || ""} ${error.url || ""}`.trim() || "—",
+              error.statusCode ?? "—"
+            ];
 
-            const message = document.createElement("p");
-            message.textContent = error.message || "No message";
-
-            const details = document.createElement("p");
-            details.className = "muted";
-            details.textContent =
-              `${error.method || ""} ${error.url || ""} · ${error["@timestamp"] || ""}`;
-
-            item.append(heading, message, details);
-            errorsBox.appendChild(item);
-          }
+            values.forEach(value => {
+              const cell = row.insertCell();
+              cell.textContent = value;
+            });
+          });
         }
 
         status.textContent = "Analysis completed.";
       } catch (error) {
         status.textContent = "Analysis failed.";
-        resultBox.textContent = error.message;
+        analysis.textContent = error.message;
       } finally {
         button.disabled = false;
       }
