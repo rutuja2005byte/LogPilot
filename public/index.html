@@ -1,0 +1,243 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LogPilot AI</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #ffffff;
+      color: #111111;
+    }
+
+    header {
+      padding: 20px 8%;
+      border-bottom: 1px solid #dddddd;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    header p {
+      margin-bottom: 0;
+      color: #666666;
+      font-size: 14px;
+    }
+
+    main {
+      max-width: 900px;
+      margin: 35px auto;
+      padding: 0 20px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+    }
+
+    .card {
+      border: 1px solid #dddddd;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .label {
+      color: #666666;
+      font-size: 13px;
+    }
+
+    .value {
+      font-size: 24px;
+      margin-top: 10px;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin-top: 0;
+    }
+
+    button {
+      padding: 11px 16px;
+      background: #111111;
+      color: #ffffff;
+      border: 1px solid #111111;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    #status {
+      color: #666666;
+      font-size: 14px;
+    }
+
+    #result {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.6;
+    }
+
+    .error-item {
+      padding: 14px 0;
+      border-top: 1px solid #eeeeee;
+    }
+
+    .error-code {
+      font-weight: bold;
+    }
+
+    .muted {
+      color: #666666;
+      font-size: 14px;
+    }
+
+    @media (max-width: 600px) {
+      .stats {
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
+
+      header {
+        padding: 20px;
+      }
+
+      main {
+        margin-top: 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>LogPilot AI</h1>
+    <p>Application monitoring and incident analysis</p>
+  </header>
+
+  <main>
+    <section class="stats">
+      <div class="card">
+        <div class="label">Error Events</div>
+        <div class="value" id="errorCount">—</div>
+      </div>
+
+      <div class="card">
+        <div class="label">AI Engine</div>
+        <div class="value">Ollama</div>
+      </div>
+
+      <div class="card">
+        <div class="label">Log Source</div>
+        <div class="value">Elasticsearch</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>AI Incident Analysis</h2>
+      <p class="muted">
+        Analyze recent errors and get possible causes and debugging steps.
+      </p>
+
+      <button id="analyzeButton" onclick="analyzeErrors()">
+        Analyze Errors
+      </button>
+
+      <p id="status" role="status"></p>
+
+      <h2>AI Findings</h2>
+      <div id="result" class="muted">
+        Click Analyze Errors to begin.
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Recent Errors</h2>
+      <div id="errors" class="muted">
+        Error events will appear here.
+      </div>
+    </section>
+  </main>
+
+  <script>
+    async function analyzeErrors() {
+      const button = document.getElementById("analyzeButton");
+      const status = document.getElementById("status");
+      const resultBox = document.getElementById("result");
+      const errorsBox = document.getElementById("errors");
+
+      button.disabled = true;
+      status.textContent = "Analyzing logs...";
+      resultBox.textContent = "";
+      errorsBox.textContent = "";
+
+      try {
+        const response = await fetch("/ai/analyze", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({})
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.details || data.error || "Analysis failed");
+        }
+
+        document.getElementById("errorCount").textContent =
+          data.count ?? 0;
+
+        resultBox.textContent =
+          data.analysis || data.message || "No analysis available.";
+
+        if (!data.errors || data.errors.length === 0) {
+          errorsBox.textContent = "No matching errors found.";
+        } else {
+          for (const error of data.errors) {
+            const item = document.createElement("div");
+            item.className = "error-item";
+
+            const heading = document.createElement("div");
+            heading.className = "error-code";
+            heading.textContent =
+              `${error.statusCode ?? "Unknown"} · ${error.level ?? "Unknown"}`;
+
+            const message = document.createElement("p");
+            message.textContent = error.message || "No message";
+
+            const details = document.createElement("p");
+            details.className = "muted";
+            details.textContent =
+              `${error.method || ""} ${error.url || ""} · ${error["@timestamp"] || ""}`;
+
+            item.append(heading, message, details);
+            errorsBox.appendChild(item);
+          }
+        }
+
+        status.textContent = "Analysis completed.";
+      } catch (error) {
+        status.textContent = "Analysis failed.";
+        resultBox.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
