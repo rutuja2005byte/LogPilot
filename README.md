@@ -6,6 +6,13 @@ A Docker-based log monitoring and AI-powered incident analysis platform built us
 
 LogPilot collects application logs, indexes them in Elasticsearch, visualizes them through Kibana, and uses a local LLM to analyze errors and suggest debugging steps.
 
+### LogPilot Application Dashboard
+![LogPilot Application Dashboard](assets/image.png)
+
+### Kibana Observability Dashboard
+![Kibana Observability Dashboard](assets/image1.png)
+
+
 ## Features
 
 - **Log Collection:** Captures application requests, errors, and HTTP status codes.
@@ -108,7 +115,3 @@ docker compose down -v
 - Advanced monitoring and alerting
 - Improved incident classification
 - Additional log sources and visualizations
-
-## Author
-
-GitHub: [rutuja2005byte](https://github.com/rutuja2005byte)
