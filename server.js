@@ -131,6 +131,106 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // Live dashboard statistics
+  if (req.method === "GET" && req.url === "/api/stats") {
+    try {
+      const response = await fetch(
+        "http://elasticsearch:9200/logpilot-*/_search",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            size: 0,
+            aggs: {
+              status_codes: {
+                terms: {
+                  field: "statusCode",
+                  size: 10
+                }
+              },
+              error_events: {
+                filter: {
+                  term: { "level.keyword": "ERROR" }
+                }
+              }
+            }
+          }),
+          signal: AbortSignal.timeout(15000)
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Elasticsearch returned HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      const buckets = result.aggregations?.status_codes?.buckets || [];
+
+      const statusCodes = {};
+      for (const bucket of buckets) {
+        statusCodes[bucket.key] = bucket.doc_count;
+      }
+
+      return sendJson(res, 200, {
+        totalEvents: result.hits?.total?.value ?? 0,
+        errorEvents: result.aggregations?.error_events?.doc_count ?? 0,
+        statusCodes
+      });
+    } catch (error) {
+      return sendJson(res, 500, {
+        error: "Could not fetch dashboard statistics",
+        details: error.message
+      });
+    }
+  }
+
+  // Get recent errors without calling Ollama
+  if (req.method === "GET" && req.url === "/api/errors") {
+    try {
+      const response = await fetch(
+        "http://elasticsearch:9200/logpilot-*/_search",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            size: 20,
+            query: {
+              bool: {
+                filter: [
+                  { term: { "level.keyword": "ERROR" } }
+                ]
+              }
+            },
+            sort: [{ "@timestamp": "desc" }]
+          }),
+          signal: AbortSignal.timeout(15000)
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Elasticsearch returned HTTP ${response.status}`
+        );
+      }
+
+      const result = await response.json();
+      const errors = (result.hits?.hits || []).map(
+        hit => hit._source
+      );
+
+      return sendJson(res, 200, {
+        count: errors.length,
+        errors
+      });
+    } catch (error) {
+      console.error("Live logs error:", error.message);
+
+      return sendJson(res, 500, {
+        error: "Could not fetch recent errors",
+        details: error.message
+      });
+    }
+  }
   if (req.method === "POST" && req.url === "/ai/analyze") {
     try {
       const response = await fetch(

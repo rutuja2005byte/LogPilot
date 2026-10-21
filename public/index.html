@@ -265,6 +265,80 @@
         button.disabled = false;
       }
     }
+  async function refreshDashboard() {
+  try {
+    const response = await fetch("/api/errors");
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch logs");
+    }
+
+    const data = await response.json();
+    const errors = data.errors || [];
+
+    // Update error counters
+    document.getElementById("errorCount").textContent =
+      data.count ?? errors.length;
+
+    document.getElementById("serverErrors").textContent =
+      errors.filter(error => Number(error.statusCode) === 500).length;
+
+    // Update recent error table
+    const logs = document.getElementById("logs");
+    logs.replaceChildren();
+
+    if (errors.length === 0) {
+      const row = logs.insertRow();
+      const cell = row.insertCell();
+      cell.colSpan = 5;
+      cell.textContent = "No errors found.";
+    } else {
+      errors.forEach(error => {
+        const row = logs.insertRow();
+
+        const values = [
+          error["@timestamp"]
+            ? new Date(error["@timestamp"]).toLocaleString()
+            : "—",
+          error.level || "—",
+          error.message || "—",
+          `${error.method || ""} ${error.url || ""}`.trim() || "—",
+          error.statusCode ?? "—"
+        ];
+
+        values.forEach(value => {
+          const cell = row.insertCell();
+          cell.textContent = value;
+        });
+      });
+    }
+  } catch (error) {
+    console.error("Dashboard refresh failed:", error.message);
+  }
+}
+async function refreshStats() {
+    try {
+      const response = await fetch("/api/stats");
+      if (!response.ok) throw new Error("Stats request failed");
+
+      const stats = await response.json();
+
+      document.getElementById("errorCount").textContent =
+        stats.errorEvents;
+
+      document.getElementById("serverErrors").textContent =
+        stats.statusCodes["500"] || 0;
+    } catch (error) {
+      console.error("Dashboard refresh failed:", error.message);
+    }
+  }
+
+  refreshStats();
+  setInterval(refreshStats, 5000);
+// Load once when the page opens, then refresh every 10 seconds.
+refreshDashboard();
+setInterval(refreshDashboard, 10000);
+  
   </script>
 </body>
 </html>
